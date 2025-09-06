@@ -12,67 +12,54 @@ export class AuthService {
     // private jwt: JwtService,
     private config: ConfigService,
   ) {}
-  async signup(dto: AuthDto) {
-    // Generate password hash
-    const passwordHash = await argon.hash(dto.password);
+  async register(AuthDto: AuthDto) {
+    const findUser = await this.prisma.user.findUnique({
+      where: {
+        email: AuthDto.email,
+      },
+    });
+
+    if (findUser) {
+      return JSON.stringify({
+        Message: `Email ${AuthDto.email} already registerd. Please Login!`,
+      });
+    }
+    const passwordHash = await argon.hash(AuthDto.password);
     try {
       const user = await this.prisma.user.create({
         data: {
-          email: dto.email,
-          full_name: dto.full_name,
+          email: AuthDto.email,
+          full_name: AuthDto.full_name,
           password: passwordHash,
         },
       });
-      return user;
+      return JSON.stringify({
+        StatusCode: 201,
+        Message: `User Created for ${AuthDto.email}`,
+        CreatedUser: user,
+      });
     } catch (error) {
-      throw new Error('User does not exist', error);
+      throw new Error(error);
     }
-    return 'signup successful';
   }
 
-  //   async signin(dto: AuthDto) {
-  //     const user = await this.prisma.user.findUnique({
-  //       where: {
-  //         email: dto.email,
-  //       },
-  //     });
+  async login(dto: AuthDto) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
 
-  //     if (!user) {
-  //       throw new Error('User does not exist');
-  //     }
-  //     const pwMatches = await argon.verify(user.password, dto.password);
-
-  //     if (!pwMatches) {
-  //       throw pwMatches;
-  //     }
-  //     return this.signToken(user.id, user.email);
-  //   }
-
-  //   async signToken(
-  //     userId: number,
-  //     email: string,
-  //   ): Promise<{ access_token: string }> {
-  //     const payload = {
-  //       sub: userId,
-  //       email,
-  //     };
-  //     const secret: string = this.config.get<string>('JWT_SECRET')!;
-  //     if (!secret) {
-  //       throw new Error('JWT_SECRET environment variable is needed');
-  //     }
-  //     const token = await this.jwt.signAsync(payload, {
-  //       expiresIn: '15m',
-  //       secret: secret,
-  //     });
-  //     return { access_token: token };
-  //   }
-
-  async GetUsers() {
-    try {
-      const users = this.prisma.user.findMany();
-      return users;
-    } catch (error) {
-      throw new Error('Could not fetch users', error);
+    if (!user) {
+      throw new Error('User does not exist');
     }
+    const pwMatches = await argon.verify(user.password, dto.password);
+
+    if (!pwMatches) {
+      return JSON.stringify({
+        Message: `Password Not Matched!.`,
+      });
+    }
+    return user;
   }
 }
